@@ -756,4 +756,28 @@ def main():
                         '值': [st.session_state.value_col, st.session_state.date_col, 
                               st.session_state.diff_type, len(export_df), 
                               export_df['差分值'].notna().sum(),
-                              str(export_df.index.min()), str(export
+                              str(export_df.index.min()), str(export_df.index.max()),
+                              pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')]
+                    })
+                    summary_df.to_excel(writer, sheet_name='分析摘要', index=False)
+                    
+                    # 添加统计sheet
+                    stats_df = pd.DataFrame({
+                        '指标': ['均值', '标准差', '最小值', '最大值'],
+                        '原始序列': [export_df['原始值'].mean(), export_df['原始值'].std(),
+                                   export_df['原始值'].min(), export_df['原始值'].max()],
+                        '差分后序列': [export_df['差分值'].mean(), export_df['差分值'].std(),
+                                    export_df['差分值'].min(), export_df['差分值'].max()]
+                    })
+                    stats_df.to_excel(writer, sheet_name='统计对比', index=False)
+                
+                st.download_button(
+                    label="⬇️ 下载Excel格式（含3个工作表）",
+                    data=buffer.getvalue(),
+                    file_name=f"差分数据_{st.session_state.value_col}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+if __name__ == "__main__":
+    main()
