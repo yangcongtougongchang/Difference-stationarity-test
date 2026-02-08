@@ -1,0 +1,19 @@
+# 核心框架
+streamlit>=1.28.0
+
+# 数据处理
+pandas>=1.5.0
+numpy>=1.24.0
+openpyxl>=3.1.0
+
+# 可视化
+matplotlib>=3.7.0
+plotly>=5.15.0
+
+# 时间序列分析
+statsmodels>=0.14.0
+
+# 辅助依赖（通常已随上述包安装，但显式声明更安全）
+scipy>=1.10.0
+packaging>=23.0
+pillow>=9.5.0
