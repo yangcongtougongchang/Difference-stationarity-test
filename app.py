@@ -348,6 +348,11 @@ def render_footer():
 
 # ==================== 主应用 ====================
 def main():
+
+        
+    # 页脚
+    render_footer()
+    
     # 顶部工具栏
     st.markdown("""
     <div style="position: fixed; top: 0; left: 0; right: 0; height: 50px; 
@@ -922,5 +927,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
