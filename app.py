@@ -12,35 +12,81 @@ from plotly.subplots import make_subplots
 import warnings
 warnings.filterwarnings('ignore')
 
-# 页面配置
+# 页面配置 - 使用 centered 布局防止侧边栏被强制隐藏
 st.set_page_config(
     page_title="时间序列平稳性分析工具",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': None
-    }
+    initial_sidebar_state="expanded"  # 默认展开
 )
 
-# 隐藏GitHub图标和Streamlit菜单
-hide_streamlit_style = """
-<style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-.stDeployButton {display:none;}
-header {visibility: hidden;}
-.css-1rs6os {visibility: hidden;}
-.css-17ziqus {visibility: hidden;}
-</style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
-# 自定义CSS样式
+# 注入CSS - 确保侧边栏按钮始终可见，并添加悬浮帮助按钮
 st.markdown("""
 <style>
+    /* 隐藏GitHub和菜单 */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
+    header {visibility: hidden;}
+    
+    /* 强制显示侧边栏控制按钮 */
+    [data-testid="collapsedControl"] {
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: flex !important;
+    }
+    
+    /* 美化侧边栏按钮 */
+    [data-testid="collapsedControl"] svg {
+        color: #1f77b4 !important;
+        width: 24px !important;
+        height: 24px !important;
+    }
+    
+    /* 悬浮帮助按钮样式 */
+    .floating-help {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        cursor: pointer;
+        z-index: 9999;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    
+    .floating-help:hover {
+        transform: scale(1.1) rotate(10deg);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    
+    /* 帮助面板 */
+    .help-panel {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        width: 350px;
+        max-height: 70vh;
+        overflow-y: auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 20px;
+        z-index: 9998;
+        display: none;
+        border: 2px solid #667eea;
+    }
+    
+    /* 主标题样式 */
     .main-header {
         font-size: 2.5rem;
         font-weight: bold;
@@ -48,6 +94,7 @@ st.markdown("""
         text-align: center;
         margin-bottom: 1rem;
     }
+    
     .section-header {
         font-size: 1.5rem;
         font-weight: bold;
@@ -57,6 +104,7 @@ st.markdown("""
         border-bottom: 2px solid #3498db;
         padding-bottom: 0.5rem;
     }
+    
     .info-box {
         background-color: #e8f4f8;
         padding: 1rem;
@@ -64,6 +112,7 @@ st.markdown("""
         border-left: 5px solid #3498db;
         margin: 1rem 0;
     }
+    
     .success-box {
         background-color: #d4edda;
         padding: 1rem;
@@ -71,6 +120,7 @@ st.markdown("""
         border-left: 5px solid #28a745;
         margin: 1rem 0;
     }
+    
     .warning-box {
         background-color: #fff3cd;
         padding: 1rem;
@@ -78,42 +128,107 @@ st.markdown("""
         border-left: 5px solid #ffc107;
         margin: 1rem 0;
     }
-    .metric-card {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 10px;
-        border: 1px solid #dee2e6;
-        text-align: center;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 24px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        padding-left: 20px;
-        padding-right: 20px;
-    }
+    
     .highlight {
         background-color: #fff3cd;
         padding: 0.2rem 0.4rem;
         border-radius: 4px;
         font-weight: bold;
     }
+    
+    /* 顶部工具栏 */
+    .top-toolbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 50px;
+        background: linear-gradient(90deg, #1f77b4 0%, #4a90e2 100%);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .toolbar-content {
+        color: white;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        width: 100%;
+    }
+    
+    .toolbar-btn {
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+    }
+    
+    .toolbar-btn:hover {
+        background: rgba(255,255,255,0.3);
+    }
+    
+    /* 为顶部工具栏留出空间 */
+    .main-content {
+        margin-top: 60px;
+    }
+    
+    /* 侧边栏恢复提示 */
+    .sidebar-hint {
+        position: fixed;
+        top: 60px;
+        left: 10px;
+        background: #ff6b6b;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        z-index: 998;
+        animation: pulse 2s infinite;
+        display: none;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
 </style>
+
+<script>
+    // 检测侧边栏状态并显示提示
+    function checkSidebar() {
+        const sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
+        const hint = parent.document.querySelector('.sidebar-hint');
+        if (sidebar && window.getComputedStyle(sidebar).width === '0px') {
+            if (hint) hint.style.display = 'block';
+        } else {
+            if (hint) hint.style.display = 'none';
+        }
+    }
+    setInterval(checkSidebar, 1000);
+</script>
+
+<div class="sidebar-hint">👈 点击左上角箭头打开设置面板</div>
 """, unsafe_allow_html=True)
 
 # 生成示例数据函数
 def generate_sample_data():
     """生成包含趋势和季节性的示例数据"""
     np.random.seed(42)
-    dates = pd.date_range(start='2020-01-01', end='2023-12-31', freq='MS')  # 月度数据
+    dates = pd.date_range(start='2020-01-01', end='2023-12-31', freq='MS')
     n = len(dates)
     
-    # 构建非平稳序列：趋势 + 季节性 + 噪声
-    trend = np.linspace(100, 200, n)  # 上升趋势
-    seasonal = 20 * np.sin(2 * np.pi * np.arange(n) / 12)  # 年度季节性
-    noise = np.random.normal(0, 5, n)  # 随机噪声
-    
+    trend = np.linspace(100, 200, n)
+    seasonal = 20 * np.sin(2 * np.pi * np.arange(n) / 12)
+    noise = np.random.normal(0, 5, n)
     values = trend + seasonal + noise
     
     df = pd.DataFrame({
@@ -146,6 +261,21 @@ def ljung_box_test(timeseries, lags=10):
 
 # 主应用
 def main():
+    # 顶部工具栏（始终可见）
+    st.markdown("""
+    <div class="top-toolbar">
+        <div class="toolbar-content">
+            <span style="font-size: 20px;">📈 时间序列平稳性分析工具</span>
+            <div style="margin-left: auto; display: flex; gap: 10px;">
+                <span style="font-size: 12px; opacity: 0.9; align-self: center;">
+                    💡 提示：点击左上角 ☰ 按钮可打开/关闭设置面板
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="main-content"></div>
+    """, unsafe_allow_html=True)
+    
     # 标题
     st.markdown('<div class="main-header">📈 时间序列平稳性分析工具</div>', unsafe_allow_html=True)
     
@@ -154,10 +284,22 @@ def main():
         st.session_state.df = None
     if 'using_sample' not in st.session_state:
         st.session_state.using_sample = False
+    if 'show_help' not in st.session_state:
+        st.session_state.show_help = False
     
-    # 侧边栏
+    # 侧边栏 - 使用更稳定的key和状态管理
     with st.sidebar:
         st.markdown("## 🧭 使用指南")
+        
+        # 添加侧边栏状态提示
+        st.markdown("""
+        <div style="background: #e3f2fd; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;">
+        <strong>💡 面板控制</strong><br>
+        点击左上角的 <strong>☰</strong> 按钮可以隐藏/显示此面板<br>
+        隐藏后可通过同一按钮重新打开
+        </div>
+        """, unsafe_allow_html=True)
+        
         with st.expander("📖 零基础使用说明", expanded=True):
             st.markdown("""
             **欢迎使用！请按以下步骤操作：**
@@ -251,7 +393,31 @@ def main():
                 st.session_state.using_sample = True
                 st.rerun()
 
-    # 主内容区
+    # 主内容区 - 添加帮助按钮
+    help_col1, help_col2 = st.columns([6, 1])
+    with help_col2:
+        if st.button("❓ 使用帮助", key="help_btn"):
+            st.session_state.show_help = not st.session_state.show_help
+    
+    if st.session_state.show_help:
+        st.markdown("""
+        <div style="background: #f8f9fa; border: 2px solid #667eea; border-radius: 15px; padding: 20px; margin: 20px 0;">
+        <h3>🆘 快速帮助</h3>
+        <p><strong>Q: 侧边栏不见了怎么办？</strong><br>
+        A: 点击页面左上角的 ☰ 按钮（或顶部的"❓ 使用帮助"按钮旁边的区域）可以重新打开侧边栏。</p>
+        
+        <p><strong>Q: 如何开始分析？</strong><br>
+        A: 1) 在"📤 数据上传"标签页点击"使用示例数据"；2) 在左侧设置参数；3) 点击"开始分析"。</p>
+        
+        <p><strong>Q: 什么是ADF检验？</strong><br>
+        A: ADF（Augmented Dickey-Fuller）检验用于判断时间序列是否平稳。p值≤0.05表示平稳。</p>
+        
+        <p><strong>Q: 差分后数据变少了？</strong><br>
+        A: 差分操作会损失部分数据（每差分1阶损失1个数据点），这是正常现象。</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 主内容标签页
     tab1, tab2, tab3, tab4 = st.tabs(["📤 数据上传", "📊 探索性分析", "🔍 差分与检验", "📥 结果导出"])
     
     with tab1:
