@@ -27,81 +27,7 @@ class UserSessionManager:
         """确保当前会话有用户ID"""
         # 直接操作session_state，不使用属性访问
         if 'user_id' not in st.session_state:
-            # 生成唯一用户ID
-            new_id = uuid.uuid4().hex[:16]
-            st.session_state['user_id'] = new_id
-            st.session_state['_session_initialized'] = datetime.now().isoformat()
-    
-    @property
-    def user_id(self):
-        """安全获取用户ID"""
-        self._ensure_user_id()  # 双重保险
-        return st.session_state['user_id']
-    
-    def get_widget_key(self, base_key):
-        """生成widget专用的key"""
-        return f"widget_{self.user_id}_{base_key}"
-    
-    def get_data_key(self, base_key):
-        """生成数据存储专用的key"""
-        return f"data_{self.user_id}_{base_key}"
-    
-    def save_data(self, base_key, value):
-        """保存数据"""
-        data_key = self.get_data_key(base_key)
-        st.session_state[data_key] = value
-    
-    def get_data(self, base_key, default=None):
-        """获取数据"""
-        data_key = self.get_data_key(base_key)
-        return st.session_state.get(data_key, default)
-    
-    def clear_all_data(self):
-        """清除当前用户的所有数据"""
-        user_id = self.user_id
-        user_prefix_data = f"data_{user_id}_"
-        user_prefix_widget = f"widget_{user_id}_"
-        
-        keys_to_delete = []
-        for key in list(st.session_state.keys()):
-            if key.startswith(user_prefix_data) or key.startswith(user_prefix_widget):
-                keys_to_delete.append(key)
-        
-        for key in keys_to_delete:
-            if key in st.session_state:
-                del st.session_state[key]
-        
-        # 保留user_id和标记
-        st.session_state[f"data_{user_id}_cleared"] = True
-        st.session_state[f"data_{user_id}_clear_time"] = datetime.now().isoformat()
-
-# ==================== 关键修复：不使用缓存，每个会话创建独立实例 ====================
-def get_session_manager():
-    """获取当前会话的SessionManager（不缓存）"""
-    # 使用session_state存储manager实例，确保每个会话独立
-    if '_session_mgr' not in st.session_state:
-        st.session_state['_session_mgr'] = UserSessionManager()
-    return st.session_state['_session_mgr']
-
-# ==================== 页面配置 ====================
-st.set_page_config(
-    page_title="时间序列平稳性分析工具",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# ==================== 获取当前会话管理器（必须在所有UI操作之前） ====================
-try:
-    session_mgr = get_session_manager()
-    user_id = session_mgr.user_id
-except Exception as e:
-    st.error(f"初始化失败: {str(e)}")
-    st.stop()
-
-# ==================== CSS样式 ====================
-st.markdown(f"""
-<style>
+ 
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     .stDeployButton {{display:none;}}
@@ -799,3 +725,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
