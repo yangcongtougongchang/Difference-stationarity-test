@@ -25,20 +25,27 @@ st.set_page_config(
     }
 )
 
-# # 隐藏GitHub图标和Streamlit菜单
-# hide_streamlit_style = """
-# <style>
-# #MainMenu {visibility: hidden;}
-# footer {visibility: hidden;}
-# .stDeployButton {display:none;}
-# header {visibility: hidden;}
-# .css-1rs6os {visibility: hidden;}
-# .css-17ziqus {visibility: hidden;}
-# </style>
-# """
-# st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# 仅隐藏GitHub图标，保留侧边栏
+hide_github_style = """
+<style>
+/* 仅隐藏GitHub图标 */
+a[href*="github.com/streamlit"] {
+    display: none !important;
+}
 
-# 自定义CSS样式
+/* 隐藏Deploy按钮（这个通常没问题） */
+.stDeployButton {
+    display: none !important;
+}
+
+/* 隐藏底部"Made with Streamlit" */
+footer {
+    visibility: hidden;
+}
+</style>
+"""
+st.markdown(hide_github_style, unsafe_allow_html=True)
+
 st.markdown("""
 <style>
     .main-header {
@@ -781,4 +788,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
