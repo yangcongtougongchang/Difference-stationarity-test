@@ -349,9 +349,6 @@ def render_footer():
 # ==================== 主应用 ====================
 def main():
 
-        
-    # 页脚
-    render_footer()
     
     # 顶部工具栏
     st.markdown("""
@@ -924,9 +921,11 @@ def main():
                     use_container_width=True,
                     key=session_mgr.get_widget_key("btn_download_excel")
                 )
-
+    # 页脚
+    render_footer()
 if __name__ == "__main__":
     main()
+
 
 
 
