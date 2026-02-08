@@ -155,7 +155,7 @@ def main():
     if 'using_sample' not in st.session_state:
         st.session_state.using_sample = False
     
-    # 侧边栏
+    # 侧边栏 - 将使用说明移到数据检测之前
     with st.sidebar:
         st.markdown("## 🧭 使用指南")
         with st.expander("📖 零基础使用说明", expanded=True):
@@ -185,7 +185,16 @@ def main():
         st.markdown("---")
         st.markdown("### ⚙️ 分析参数设置")
         
-        # 这些控件会在数据上传后显示
+        # 显示数据上传状态提示
+        if st.session_state.df is None:
+            st.info("👆 请先上传数据或点击\"使用示例数据\"")
+            
+            if st.button("📊 加载示例数据", type="secondary", use_container_width=True):
+                st.session_state.df = generate_sample_data()
+                st.session_state.using_sample = True
+                st.rerun()
+        
+        # 这些控件只在有数据时显示
         if st.session_state.df is not None:
             df = st.session_state.df
             
@@ -243,13 +252,8 @@ def main():
             else:
                 st.warning("未检测到数值列")
         else:
-            # 未上传数据时的提示
-            st.info("👆 请先上传数据或点击\"使用示例数据\"")
-            
-            if st.button("📊 加载示例数据", type="secondary", use_container_width=True):
-                st.session_state.df = generate_sample_data()
-                st.session_state.using_sample = True
-                st.rerun()
+            # 未上传数据时的提示（已移到上面）
+            pass
 
     # 主内容区
     tab1, tab2, tab3, tab4 = st.tabs(["📤 数据上传", "📊 探索性分析", "🔍 差分与检验", "📥 结果导出"])
@@ -752,28 +756,4 @@ def main():
                         '值': [st.session_state.value_col, st.session_state.date_col, 
                               st.session_state.diff_type, len(export_df), 
                               export_df['差分值'].notna().sum(),
-                              str(export_df.index.min()), str(export_df.index.max()),
-                              pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')]
-                    })
-                    summary_df.to_excel(writer, sheet_name='分析摘要', index=False)
-                    
-                    # 添加统计sheet
-                    stats_df = pd.DataFrame({
-                        '指标': ['均值', '标准差', '最小值', '最大值'],
-                        '原始序列': [export_df['原始值'].mean(), export_df['原始值'].std(),
-                                   export_df['原始值'].min(), export_df['原始值'].max()],
-                        '差分后序列': [export_df['差分值'].mean(), export_df['差分值'].std(),
-                                    export_df['差分值'].min(), export_df['差分值'].max()]
-                    })
-                    stats_df.to_excel(writer, sheet_name='统计对比', index=False)
-                
-                st.download_button(
-                    label="⬇️ 下载Excel格式（含3个工作表）",
-                    data=buffer.getvalue(),
-                    file_name=f"差分数据_{st.session_state.value_col}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-
-if __name__ == "__main__":
-    main()
+                              str(export_df.index.min()), str(export
