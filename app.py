@@ -25,18 +25,18 @@ st.set_page_config(
     }
 )
 
-# 隐藏GitHub图标和Streamlit菜单
-hide_streamlit_style = """
-<style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-.stDeployButton {display:none;}
-header {visibility: hidden;}
-.css-1rs6os {visibility: hidden;}
-.css-17ziqus {visibility: hidden;}
-</style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# # 隐藏GitHub图标和Streamlit菜单
+# hide_streamlit_style = """
+# <style>
+# #MainMenu {visibility: hidden;}
+# footer {visibility: hidden;}
+# .stDeployButton {display:none;}
+# header {visibility: hidden;}
+# .css-1rs6os {visibility: hidden;}
+# .css-17ziqus {visibility: hidden;}
+# </style>
+# """
+# st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # 自定义CSS样式
 st.markdown("""
@@ -781,3 +781,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
