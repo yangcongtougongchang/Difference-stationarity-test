@@ -102,15 +102,45 @@ except Exception as e:
 # ==================== CSS样式 ====================
 st.markdown(f"""
 <style>
-    #MainMenu {{visibility: hidden;}}
-    footer {{visibility: hidden;}}
-    .stDeployButton {{display:none;}}
-    header {{visibility: hidden;}}
+    /* ❌ 删除这些过于激进的隐藏规则：
+       #MainMenu {{visibility: hidden;}}
+       header {{visibility: hidden;}}  
+       .css-1rs6os {{visibility: hidden;}}
+       .css-17ziqus {{visibility: hidden;}}
+    */
     
+    /* ✅ 精准隐藏GitHub图标 - 通过href属性定位 */
+    a[href*="github.com/streamlit"] {{
+        display: none !important;
+        visibility: hidden !important;
+    }}
+    
+    /* 隐藏Deploy按钮 */
+    .stDeployButton, [data-testid="stDeployButton"] {{
+        display: none !important;
+    }}
+    
+    /* 隐藏底部"Made with Streamlit" */
+    footer {{
+        visibility: hidden;
+    }}
+    
+    /* 确保侧边栏切换按钮可见（关键修复） */
     [data-testid="collapsedControl"] {{
         visibility: visible !important;
         opacity: 1 !important;
         display: flex !important;
+        z-index: 999999 !important;
+    }}
+    
+    /* 确保Streamlit顶部导航栏可见，但清理右侧按钮 */
+    header {{
+        visibility: visible !important;
+    }}
+    
+    /* 隐藏右上角菜单按钮（...按钮）如果需要 */
+    button[kind="header"] {{
+        display: none !important;
     }}
     
     .user-badge {{
@@ -178,6 +208,8 @@ st.markdown(f"""
         font-size: 12px;
     }}
 </style>
+
+
 
 <div class="user-badge" title="您的会话ID: {user_id}">
     用户: {user_id[:8]}... | 数据隔离中
@@ -799,3 +831,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
