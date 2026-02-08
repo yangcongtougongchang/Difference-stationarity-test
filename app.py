@@ -15,47 +15,52 @@ import hashlib
 from datetime import datetime
 warnings.filterwarnings('ignore')
 
-# ==================== 多用户隔离管理器（修复版） ====================
+# ==================== 修复版：多用户隔离管理器 ====================
 class UserSessionManager:
-    """管理多用户会话隔离 - 修复widget冲突"""
+    """管理多用户会话隔离 - 每个会话独立"""
     
     def __init__(self):
-        self._init_user()
+        # 每个实例都强制初始化用户ID，不依赖缓存
+        self._ensure_user_id()
     
-    def _init_user(self):
-        """初始化用户ID"""
+    def _ensure_user_id(self):
+        """确保当前会话有用户ID"""
+        # 直接操作session_state，不使用属性访问
         if 'user_id' not in st.session_state:
             # 生成唯一用户ID
-            user_id = uuid.uuid4().hex[:16]
-            st.session_state.user_id = user_id
-            st.session_state._user_initialized = True
+            new_id = uuid.uuid4().hex[:16]
+            st.session_state['user_id'] = new_id
+            st.session_state['_session_initialized'] = datetime.now().isoformat()
     
     @property
     def user_id(self):
-        return st.session_state.user_id
+        """安全获取用户ID"""
+        self._ensure_user_id()  # 双重保险
+        return st.session_state['user_id']
     
     def get_widget_key(self, base_key):
-        """生成widget专用的key（带用户前缀）"""
+        """生成widget专用的key"""
         return f"widget_{self.user_id}_{base_key}"
     
     def get_data_key(self, base_key):
-        """生成数据存储专用的key（带用户前缀，与widget key区分）"""
+        """生成数据存储专用的key"""
         return f"data_{self.user_id}_{base_key}"
     
-    def save_widget_value(self, base_key, value):
-        """保存widget值到数据存储区"""
+    def save_data(self, base_key, value):
+        """保存数据"""
         data_key = self.get_data_key(base_key)
         st.session_state[data_key] = value
     
     def get_data(self, base_key, default=None):
-        """获取用户数据（从数据存储区）"""
+        """获取数据"""
         data_key = self.get_data_key(base_key)
         return st.session_state.get(data_key, default)
     
     def clear_all_data(self):
         """清除当前用户的所有数据"""
-        user_prefix_data = f"data_{self.user_id}_"
-        user_prefix_widget = f"widget_{self.user_id}_"
+        user_id = self.user_id
+        user_prefix_data = f"data_{user_id}_"
+        user_prefix_widget = f"widget_{user_id}_"
         
         keys_to_delete = []
         for key in list(st.session_state.keys()):
@@ -63,18 +68,20 @@ class UserSessionManager:
                 keys_to_delete.append(key)
         
         for key in keys_to_delete:
-            del st.session_state[key]
+            if key in st.session_state:
+                del st.session_state[key]
         
-        # 保留user_id，但标记为已清理
-        st.session_state[f"data_{self.user_id}_cleared"] = True
-        st.session_state[f"data_{self.user_id}_clear_time"] = datetime.now()
+        # 保留user_id和标记
+        st.session_state[f"data_{user_id}_cleared"] = True
+        st.session_state[f"data_{user_id}_clear_time"] = datetime.now().isoformat()
 
-# 全局会话管理器
-@st.cache_resource
+# ==================== 关键修复：不使用缓存，每个会话创建独立实例 ====================
 def get_session_manager():
-    return UserSessionManager()
-
-session_mgr = get_session_manager()
+    """获取当前会话的SessionManager（不缓存）"""
+    # 使用session_state存储manager实例，确保每个会话独立
+    if '_session_mgr' not in st.session_state:
+        st.session_state['_session_mgr'] = UserSessionManager()
+    return st.session_state['_session_mgr']
 
 # ==================== 页面配置 ====================
 st.set_page_config(
@@ -83,6 +90,14 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ==================== 获取当前会话管理器（必须在所有UI操作之前） ====================
+try:
+    session_mgr = get_session_manager()
+    user_id = session_mgr.user_id
+except Exception as e:
+    st.error(f"初始化失败: {str(e)}")
+    st.stop()
 
 # ==================== CSS样式 ====================
 st.markdown(f"""
@@ -162,29 +177,17 @@ st.markdown(f"""
         margin-bottom: 15px;
         font-size: 12px;
     }}
-    
-    .isolation-indicator {{
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        background: #d4edda;
-        color: #155724;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-        margin-left: 10px;
-    }}
 </style>
 
-<div class="user-badge" title="您的会话ID: {session_mgr.user_id}">
-    用户: {session_mgr.user_id[:8]}... | 数据隔离中
+<div class="user-badge" title="您的会话ID: {user_id}">
+    用户: {user_id[:8]}... | 数据隔离中
 </div>
 """, unsafe_allow_html=True)
 
 # ==================== 数据生成函数 ====================
 def generate_sample_data():
     """生成示例数据（每个用户独立）"""
-    np.random.seed(hash(session_mgr.user_id) % 2**32)
+    np.random.seed(hash(user_id) % 2**32)
     dates = pd.date_range(start='2020-01-01', end='2023-12-31', freq='MS')
     n = len(dates)
     
@@ -222,8 +225,6 @@ def ljung_box_test(timeseries, lags=10):
 
 # ==================== 主应用 ====================
 def main():
-    user_id = session_mgr.user_id
-    
     # 顶部工具栏
     st.markdown("""
     <div style="position: fixed; top: 0; left: 0; right: 0; height: 50px; 
@@ -247,9 +248,10 @@ def main():
     st.markdown(f"""
     <div class="privacy-notice">
     <strong>🔒 隐私保护说明</strong> | 会话ID: <code>{user_id}</code>
-    <span style="float: right; cursor: pointer;" onclick="alert('数据隔离说明：每个用户的数据存储在独立的命名空间中，通过唯一的会话ID进行隔离。页面关闭后数据自动清除。')">[?]</span><br>
-    • 数据仅存储在当前会话内存中，其他用户无法访问 • 页面关闭后自动清除 • 
-    <a href="#" onclick="window.location.reload(); return false;" style="color: #856404;">点击刷新页面可清除所有数据</a>
+    <span style="float: right;">
+        <a href="#" onclick="window.location.reload(); return false;" style="color: #856404;">[刷新页面清除数据]</a>
+    </span><br>
+    • 数据仅存储在当前会话内存中 • 其他用户无法访问 • 页面关闭后自动清除
     </div>
     """, unsafe_allow_html=True)
     
@@ -297,10 +299,9 @@ def main():
         current_df = session_mgr.get_data('df')
         
         if current_df is not None:
-            # 时间列选择 - 使用widget key，但保存到数据key
+            # 时间列选择
             date_cols = current_df.select_dtypes(include=['datetime64', 'object']).columns.tolist()
             if date_cols:
-                # 获取保存的值作为默认值
                 saved_date_col = session_mgr.get_data('date_col', date_cols[0])
                 default_index = date_cols.index(saved_date_col) if saved_date_col in date_cols else 0
                 
@@ -308,16 +309,15 @@ def main():
                     "选择时间列", 
                     date_cols, 
                     index=default_index,
-                    key=session_mgr.get_widget_key("sel_date_col")  # widget专用key
+                    key=session_mgr.get_widget_key("sel_date_col")
                 )
-                # 保存到数据存储区
-                session_mgr.save_widget_value('date_col', date_col)
+                session_mgr.save_data('date_col', date_col)
                 
                 # 尝试转换时间格式
                 if current_df[date_col].dtype == 'object':
                     try:
                         current_df[date_col] = pd.to_datetime(current_df[date_col])
-                        session_mgr.save_widget_value('df', current_df)
+                        session_mgr.save_data('df', current_df)
                     except:
                         st.error("时间列转换失败，请检查格式")
             else:
@@ -336,7 +336,7 @@ def main():
                     index=default_index,
                     key=session_mgr.get_widget_key("sel_value_col")
                 )
-                session_mgr.save_widget_value('value_col', value_col)
+                session_mgr.save_data('value_col', value_col)
                 
                 # 差分设置
                 st.markdown("---")
@@ -348,14 +348,13 @@ def main():
                     **季节差分**：消除周期性（月度=12，季度=4，日度=7）
                     """)
                 
-                # 使用number_input，保存值
                 diff_order = st.number_input(
                     "普通差分阶数", 
                     min_value=0, max_value=3, 
                     value=session_mgr.get_data('diff_order', 1),
                     key=session_mgr.get_widget_key("num_diff_order")
                 )
-                session_mgr.save_widget_value('diff_order', diff_order)
+                session_mgr.save_data('diff_order', diff_order)
                 
                 seasonal_diff = st.number_input(
                     "季节性差分阶数", 
@@ -363,7 +362,7 @@ def main():
                     value=session_mgr.get_data('seasonal_diff', 0),
                     key=session_mgr.get_widget_key("num_seasonal_diff")
                 )
-                session_mgr.save_widget_value('seasonal_diff', seasonal_diff)
+                session_mgr.save_data('seasonal_diff', seasonal_diff)
                 
                 seasonal_period = st.number_input(
                     "季节性周期", 
@@ -371,13 +370,13 @@ def main():
                     value=session_mgr.get_data('seasonal_period', 12),
                     key=session_mgr.get_widget_key("num_seasonal_period")
                 )
-                session_mgr.save_widget_value('seasonal_period', seasonal_period)
+                session_mgr.save_data('seasonal_period', seasonal_period)
                 
                 # 分析按钮
                 st.markdown("---")
                 if st.button("🚀 开始分析", type="primary", use_container_width=True, 
                            key=session_mgr.get_widget_key("btn_analyze")):
-                    session_mgr.save_widget_value('analyze', True)
+                    session_mgr.save_data('analyze', True)
                     st.rerun()
             else:
                 st.warning("未检测到数值列")
@@ -387,8 +386,8 @@ def main():
             if st.button("📊 加载示例数据", type="secondary", use_container_width=True,
                        key=session_mgr.get_widget_key("btn_sample")):
                 sample_df = generate_sample_data()
-                session_mgr.save_widget_value('df', sample_df)
-                session_mgr.save_widget_value('using_sample', True)
+                session_mgr.save_data('df', sample_df)
+                session_mgr.save_data('using_sample', True)
                 st.rerun()
 
     # 主内容区 - 标签页
@@ -410,11 +409,11 @@ def main():
                 if st.button("📊 使用示例数据（推荐新手）", type="primary", use_container_width=True,
                            key=session_mgr.get_widget_key("btn_sample_main")):
                     sample_df = generate_sample_data()
-                    session_mgr.save_widget_value('df', sample_df)
-                    session_mgr.save_widget_value('using_sample', True)
+                    session_mgr.save_data('df', sample_df)
+                    session_mgr.save_data('using_sample', True)
                     st.rerun()
             
-            # 文件上传 - 关键修复：不直接使用uploaded_file作为判断条件
+            # 文件上传
             uploaded_file = st.file_uploader(
                 "上传CSV或Excel文件", 
                 type=['csv', 'xlsx', 'xls'],
@@ -423,7 +422,6 @@ def main():
             
             # 处理上传的文件
             if uploaded_file is not None:
-                # 计算文件哈希判断是否为新文件
                 file_bytes = uploaded_file.getvalue()
                 file_hash = hashlib.md5(file_bytes).hexdigest()
                 last_hash = session_mgr.get_data('last_file_hash')
@@ -435,11 +433,10 @@ def main():
                         else:
                             new_df = pd.read_excel(uploaded_file)
                         
-                        # 保存新数据
-                        session_mgr.save_widget_value('df', new_df)
-                        session_mgr.save_widget_value('using_sample', False)
-                        session_mgr.save_widget_value('last_file_hash', file_hash)
-                        session_mgr.save_widget_value('analyze', False)  # 重置分析状态
+                        session_mgr.save_data('df', new_df)
+                        session_mgr.save_data('using_sample', False)
+                        session_mgr.save_data('last_file_hash', file_hash)
+                        session_mgr.save_data('analyze', False)
                         
                         st.success(f"✅ 成功加载！共 {len(new_df)} 行，{len(new_df.columns)} 列")
                         st.rerun()
@@ -499,7 +496,6 @@ def main():
             numeric_cols = current_df.select_dtypes(include=[np.number]).columns.tolist()
             
             if numeric_cols:
-                # 选择列
                 saved_col = session_mgr.get_data('explore_col', numeric_cols[0])
                 default_idx = numeric_cols.index(saved_col) if saved_col in numeric_cols else 0
                 
@@ -509,7 +505,7 @@ def main():
                     index=default_idx,
                     key=session_mgr.get_widget_key("sel_explore_col")
                 )
-                session_mgr.save_widget_value('explore_col', selected_col)
+                session_mgr.save_data('explore_col', selected_col)
                 
                 date_col = session_mgr.get_data('date_col')
                 if date_col and date_col in current_df.columns:
@@ -599,7 +595,7 @@ def main():
             
             if not all([value_col, date_col]) or value_col not in df.columns or date_col not in df.columns:
                 st.error("参数错误，请重新选择数据列")
-                session_mgr.save_widget_value('analyze', False)
+                session_mgr.save_data('analyze', False)
                 st.rerun()
             
             # 准备数据
@@ -721,8 +717,8 @@ def main():
                     st.warning("差分后数据不足")
             
             # 保存结果
-            session_mgr.save_widget_value('diff_series', diff_series)
-            session_mgr.save_widget_value('diff_type', diff_type)
+            session_mgr.save_data('diff_series', diff_series)
+            session_mgr.save_data('diff_type', diff_type)
     
     with tab4:
         if session_mgr.get_data('diff_series') is None:
